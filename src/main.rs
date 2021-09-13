@@ -215,9 +215,10 @@ impl GameBoard for Chess {
                             }
                         }
                         //check diagonal
+                        //should be good
                         blocked = false;
                         for x in j..self.board[i].len() {
-                            println!("{} {}", x, i as i32-(x-j) as i32);
+                            //println!("{} {}", x, i as i32-(x-j) as i32);
                             //println!("{} {:?}", (x, x+i-j).to_rank_file(), self.get_piece_at(x+i-j, x));
                             if self.get_piece_at(x+i-j, x) == Pieces::Empty && !blocked {
                                 positions.push(Move::new(Pieces::Queen(t), (j, i).to_rank_file(), (x, x+i-j).to_rank_file()));
@@ -225,8 +226,12 @@ impl GameBoard for Chess {
                                 blocked = true
                             }
                         }
+                        //should be good
                         blocked = false;
                         for x in j..self.board[i].len() {
+                            if (i as i32 - (x-j) as i32) < 0 {
+                                break;
+                            }
                             //TODO keep an eye on this
                             if self.get_piece_at((i as i32 - (x-j) as i32) as usize, x) == Pieces::Empty && !blocked {
                                 positions.push(Move::new(Pieces::Queen(t), (j, i).to_rank_file(), (x, (i as i32 - (x-j) as i32) as usize).to_rank_file()));
@@ -234,11 +239,154 @@ impl GameBoard for Chess {
                                 blocked = true;
                             }
                          }
-                        //TODO Do other diagonal
+                        //should be good
+                        blocked = false;
+                        for x in (0..j).rev() {
+
+                            let mut y = (x as i32 + i as i32 - j as i32);
+                            if y < 0 {
+                                break;
+                            }
+                            let y = y as usize;
+                            if self.get_piece_at(y, x) == Pieces::Empty && !blocked {
+                                positions.push(Move::new(Pieces::Queen(t), (j, i).to_rank_file(), (x, y).to_rank_file()));
+                            } else {
+                                blocked = true;
+                            }
+                        }
+                        //should be good
+                        blocked = false;
+                        for x in (0..j).rev() {
+                            let y = i as i32 - x as i32 + j as i32;
+                            if self.get_piece_at(y as usize, x) == Pieces::Empty && !blocked {
+                                positions.push(Move::new(Pieces::Queen(t), (j, i).to_rank_file(), (x, y as usize).to_rank_file()));
+                            } else {
+                                blocked = true;
+                            }
+                        }
                     }
-                    Pieces::Rook(t) => {}
-                    Pieces::Bishop(t) => {}
-                    Pieces::Knight(t) => {}
+                    Pieces::Rook(t) => {
+                        let mut blocked = false;
+                        for x in (0..j).rev() {
+                            if self.get_piece_at(i, x) == Pieces::Empty && !blocked {
+                                positions.push(Move::new(Pieces::Rook(t), (j, i).to_rank_file(), (x, i).to_rank_file()));
+                            } else {
+                                blocked = true;
+                            }
+                        }
+                        for x in j..self.board[i].len() {
+                            if self.get_piece_at(i, x) == Pieces::Empty && !blocked {
+                                positions.push(Move::new(Pieces::Rook(t), (j, i).to_rank_file(), (x, i).to_rank_file()));
+                            } else {
+                                blocked = true;
+                            }
+                        }
+                        for y in (0..i).rev() {
+                            if self.get_piece_at(y, j) == Pieces::Empty && !blocked {
+                                positions.push(Move::new(Pieces::Rook(t), (j, i).to_rank_file(), (j, y).to_rank_file()));
+                            } else {
+                                blocked = true;
+                            }
+                        }
+                        for y in i..self.board.len() {
+                            if self.get_piece_at(y, j) == Pieces::Empty && !blocked {
+                                positions.push(Move::new(Pieces::Rook(t), (j, i).to_rank_file(), (j, y).to_rank_file()));
+                            } else {
+                                blocked = true;
+                            }
+                        }
+                    }
+                    Pieces::Bishop(t) => {
+
+                        let mut blocked = false;
+                        for x in j..self.board[i].len() {
+                            //println!("{} {}", x, i as i32-(x-j) as i32);
+                            //println!("{} {:?}", (x, x+i-j).to_rank_file(), self.get_piece_at(x+i-j, x));
+                            if self.get_piece_at(x+i-j, x) == Pieces::Empty && !blocked {
+                                positions.push(Move::new(Pieces::Bishop(t), (j, i).to_rank_file(), (x, x+i-j).to_rank_file()));
+                            }  else {
+                                blocked = true
+                            }
+                        }
+                        //should be good
+                        blocked = false;
+                        for x in j..self.board[i].len() {
+                            if (i as i32 - (x-j) as i32) < 0 {
+                                break;
+                            }
+                            //TODO keep an eye on this
+                            if self.get_piece_at((i as i32 - (x-j) as i32) as usize, x) == Pieces::Empty && !blocked {
+                                positions.push(Move::new(Pieces::Bishop(t), (j, i).to_rank_file(), (x, (i as i32 - (x-j) as i32) as usize).to_rank_file()));
+                            } else {
+                                blocked = true;
+                            }
+                        }
+                        //should be good
+                        blocked = false;
+                        for x in (0..j).rev() {
+
+                            let mut y = (x as i32 + i as i32 - j as i32);
+                            if y < 0 {
+                                break;
+                            }
+                            let y = y as usize;
+                            if self.get_piece_at(y, x) == Pieces::Empty && !blocked {
+                                positions.push(Move::new(Pieces::Bishop(t), (j, i).to_rank_file(), (x, y).to_rank_file()));
+                            } else {
+                                blocked = true;
+                            }
+                        }
+                        //should be good
+                        blocked = false;
+                        for x in (0..j).rev() {
+                            let y = i as i32 - x as i32 + j as i32;
+                            if self.get_piece_at(y as usize, x) == Pieces::Empty && !blocked {
+                                positions.push(Move::new(Pieces::Bishop(t), (j, i).to_rank_file(), (x, y as usize).to_rank_file()));
+                            } else {
+                                blocked = true;
+                            }
+                        }
+                    }
+                    Pieces::Knight(t) => {
+                        //have to hard code this one
+                        let x = j as i32;
+                        let y = i as i32;
+                        let tl = ((x-1) as usize, (y-2) as usize);
+                        let tr = ((x+1) as usize, (y-2) as usize);
+
+                        let mr1 = ((x+2) as usize, (y-1) as usize);
+                        let ml1 = ((x-2) as usize, (y-1) as usize);
+
+                        let mr2 = ((x+2) as usize, (y+1) as usize);
+                        let ml2 = ((x-2) as usize, (y+1) as usize);
+
+                        let bl = ((x-1) as usize, (y+2) as usize);
+                        let br = ((x+1) as usize, (y+2) as usize);
+                        if self.get_piece_at(tl.1, tl.0) == Pieces::Empty {
+                            positions.push(Move::new(Pieces::Knight(t), (j, i).to_rank_file(), tl.to_rank_file()));
+                        }
+                        if self.get_piece_at(tr.1, tr.0) == Pieces::Empty {
+                            positions.push(Move::new(Pieces::Knight(t), (j, i).to_rank_file(), tr.to_rank_file()));
+                        }
+                        if self.get_piece_at(mr1.1, mr1.0) == Pieces::Empty {
+                            positions.push(Move::new(Pieces::Knight(t), (j, i).to_rank_file(), mr1.to_rank_file()));
+                        }
+                        if self.get_piece_at(ml1.1, ml1.0) == Pieces::Empty {
+                            positions.push(Move::new(Pieces::Knight(t), (j, i).to_rank_file(), ml1.to_rank_file()));
+                        }
+                        if self.get_piece_at(mr2.1, mr2.0) == Pieces::Empty {
+                            positions.push(Move::new(Pieces::Knight(t), (j, i).to_rank_file(), mr2.to_rank_file()));
+                        }
+                        if self.get_piece_at(ml2.1, ml2.0) == Pieces::Empty {
+                            positions.push(Move::new(Pieces::Knight(t), (j, i).to_rank_file(), ml2.to_rank_file()));
+                        }
+                        if self.get_piece_at(bl.1, bl.0) == Pieces::Empty {
+                            positions.push(Move::new(Pieces::Knight(t), (j, i).to_rank_file(), bl.to_rank_file()));
+                        }
+                        if self.get_piece_at(br.1, br.0) == Pieces::Empty {
+                            positions.push(Move::new(Pieces::Knight(t), (j, i).to_rank_file(), br.to_rank_file()));
+                        }
+                    }
                     Pieces::Empty => {}
                 }
             }
