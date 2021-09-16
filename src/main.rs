@@ -36,7 +36,7 @@ impl FromStr for Pieces {
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         let mut string = s.to_string().to_lowercase();
         if string.contains("pawn") {
-            return Ok(Pieces::Pawn(NULL));
+            return Ok(Pieces::Pawn(NULL, 0));
         } else if string.contains("king") {
             return Ok(Pieces::King(NULL));
         } else if string.contains("queen") {
@@ -59,7 +59,7 @@ impl Display for Chess {
             write!(f, "{} ", i+1);
             for j in 0..self.board[i].len() {
                 match self.board[i][j] {
-                    Pieces::Pawn(t) => {
+                    Pieces::Pawn(t, _) => {
                         match t {
                             WHITE => {
                                 write!(f, "WP ");
@@ -151,7 +151,7 @@ impl Coords for (usize, usize) {
 }
 #[derive(Debug, Clone, Copy, PartialOrd, PartialEq)]
 enum Pieces {
-    Pawn(Players),
+    Pawn(Players, i32),
     King(Players),
     Queen(Players),
     Rook(Players),
@@ -160,33 +160,39 @@ enum Pieces {
     Empty,
 }
 impl Pieces {
-    fn get_player(&self) -> Players {
-        match self {
-            Pieces::Pawn(t) => {
-                return *t;
+    fn get_player(self) -> Players {
+        return match self {
+            Pieces::Pawn(t, _) => {
+                t
             }
             Pieces::King(t) => {
-                return *t;
+                t
             }
             Pieces::Queen(t) => {
-                return *t;
+                t
             }
             Pieces::Rook(t) => {
-                return *t;
+                t
             }
             Pieces::Bishop(t) => {
-                return *t;
+                t
             }
             Pieces::Knight(t) => {
-                return *t;
+                t
             }
             Pieces::Empty => {
-                return NULL;
+                NULL
             }
         }
     }
+    fn get_moves(&self) -> i32 {
+        if let Pieces::Pawn(_, i) = self {
+            return *i;
+        }
+        -1
+    }
 }
-#[derive(Debug, Clone, PartialOrd, PartialEq)]
+#[derive(Debug, Clone, Copy, PartialOrd, PartialEq)]
 struct Move {
     piece: Pieces,
     current_position: (usize, usize),
@@ -200,6 +206,11 @@ impl Move {
             current_position: current,
             new_position: new,
         }
+    }
+    fn is_valid(&self, board: &Vec<Vec<Pieces>>) -> bool {
+        //X and Y values are less than the board length and are positive
+        (self.new_position.0 < board[0].len() && self.new_position.0 >= 0)
+            && (self.new_position.1 < board.len() && self.new_position.1 >= 0)
     }
 }
 #[derive(Clone, Debug)]
@@ -220,6 +231,7 @@ struct Chess {
     p1: Agent,
     p2: Agent,
     is_end: bool,
+
 }
 
 impl Agent {
@@ -272,27 +284,70 @@ impl Chess {
     fn spawn_pawn(&mut self, player: Players) {
         if player == WHITE {
             for x in 0..self.board[0].len() {
-                self.board[1][x] = Pieces::Pawn(player);
+                self.board[6][x] = Pieces::Pawn(player, 0);
             }
         }
         if player == BLACK {
             for x in 0..self.board[0].len() {
-                self.board[6][x] = Pieces::Pawn(player);
+                self.board[1][x] = Pieces::Pawn(player, 0);
             }
         }
     }
     fn spawn_rook(&mut self, player: i32) {}
     fn spawn_bishop(&mut self, player: i32) {}
-    fn spawn_knight(&mut self, player: i32) {}
+    fn spawn_knight(&mut self, player: i32) {
+
+    }
     fn spawn_king(&mut self, player: i32) {}
     fn spawn_queen(&mut self, player: i32) {}
-    fn check_pawn_moves(&self, player: Players, x: usize, y: usize) -> Vec<Move> {
-        todo!();
+    fn check_pawn_moves(&self, player: Players, x: usize, y: usize, moves: i32) -> Vec<Move> {
+        //if white player moves up else player moves down
+        let mut available: Vec<Move> = vec![];
+        if player == Players::BLACK {
+            let mut plays = vec![
+                Move::new(Pieces::Pawn(player, moves), (x, y), (x, y+1))];
+            if moves == 0 {
+                plays.push(Move::new(Pieces::Pawn(player, moves), (x, y), (x, y+2)));
+            }
+            for x in plays {
+                if x.is_valid(&self.board) {
+                    available.push(x);
+                }
+            }
+        } else if player == Players::WHITE {
+            let mut plays = vec![
+                Move::new(Pieces::Pawn(player, moves), (x, y), (x, y-1))];
+            if moves == 0 {
+                plays.push(Move::new(Pieces::Pawn(player, moves), (x, y), (x, y-2)));
+            }
+            for x in plays {
+                if x.is_valid(&self.board) {
+                    available.push(x);
+                }
+            }
+        }
+        available
+    }
+    fn check_king_moves(&self, player: Players, x: usize, y: usize) -> Vec<Move> {
+        let mut available: Vec<Move> = vec![];
+        for j in x-1..=x+1 {
+            for i in y-1..=y+1 {
+                let play = Move::new(Pieces::King(player), (x, y), (j, i));
+                if play.is_valid(&self.board) {
+                    available.push(play);
+                }
+            }
+        }
+        available
     }
     fn can_move(&self, x: usize, y: usize) -> bool {
         match self.board[y][x] {
-            Pieces::Pawn(t) => {}
-            Pieces::King(t) => {}
+            Pieces::Pawn(t, i) => {
+                return !self.check_pawn_moves(t, x, y, i).is_empty();
+            }
+            Pieces::King(t) => {
+                return !self.check_king_moves(t, x, y).is_empty();
+            }
             Pieces::Queen(t) => {}
             Pieces::Rook(t) => {}
             Pieces::Bishop(t) => {}
@@ -300,6 +355,20 @@ impl Chess {
             Pieces::Empty => {}
         }
         false
+    }
+    fn get_move(&self, x: usize, y: usize) -> Vec<Move> {
+        match self.board[y][x] {
+            Pieces::Pawn(t, i) => {
+                return self.check_pawn_moves(t, x, y, i);
+            }
+            Pieces::King(t) => {}
+            Pieces::Queen(t) => {}
+            Pieces::Rook(t) => {}
+            Pieces::Bishop(t) => {}
+            Pieces::Knight(t) => {}
+            Pieces::Empty => {}
+        }
+        return vec![];
     }
     fn new() -> Chess {
         Chess {
@@ -313,18 +382,18 @@ impl Chess {
         }
     }
     fn reset_piece(&self, piece: Pieces) -> Pieces {
-        if let Pieces::Knight(NULL) = piece {
+        if let Pieces::Knight(_) = piece {
             return Pieces::Knight(self.current_player);
-        } else if let Pieces::Bishop(NULL) = piece {
+        } else if let Pieces::Bishop(_) = piece {
             return Pieces::Bishop(self.current_player);
-        } else if let Pieces::Rook(NULL) = piece {
+        } else if let Pieces::Rook(_) = piece {
             return Pieces::Rook(self.current_player);
-        } else if let Pieces::Queen(NULL) = piece {
+        } else if let Pieces::Queen(_) = piece {
             return Pieces::Queen(self.current_player);
-        } else if let Pieces::King(NULL) = piece {
+        } else if let Pieces::King(_) = piece {
             return Pieces::King(self.current_player);
-        } else if let Pieces::Pawn(NULL) = piece {
-            return Pieces::Pawn(self.current_player);
+        } else if let Pieces::Pawn(_, i) = piece {
+            return Pieces::Pawn(self.current_player, i);
         }
         piece
     }
@@ -349,51 +418,9 @@ impl GameBoard for Chess {
         let mut positions: Vec<Self::Position> = vec![];
         for i in 0..self.board.len() {
             for j in 0..self.board[i].len() {
-                //white
                 match self.board[i][j] {
-                    Pieces::Pawn(t) => {
-                        if t == player {
-                            if player == WHITE {
-                                let current = (j, i);
-                                let new = (j, i+1);
-                                if i < self.board.len()-1 {
-                                    if self.board[i+1][j] == Pieces::Empty {
-                                        positions.push(Move::new(Pieces::Pawn(t), current, new));
-                                    }
-                                    if j > 0 {
-                                        if self.board[i + 1][j - 1].get_player() == BLACK {
-                                            positions.push(Move::new(Pieces::Pawn(t), current, (j - 1, i + 1)));
-                                        }
-                                    }
-                                    if j < self.board[0].len()-1 {
-                                        assert!(j < self.board[0].len()-1 && i < self.board.len()-1);
-                                        if self.board[i + 1][j + 1].get_player() == BLACK {
-                                            positions.push(Move::new(Pieces::Pawn(t), current, (j + 1, i + 1)));
-                                        }
-                                    }
-
-                                }
-                            }
-                            if player == BLACK {
-                                let current = (j, i);
-                                let new = (j, i-1);
-                                if i > 0 {
-                                    if self.board[i-1][j] == Pieces::Empty {
-                                        positions.push(Move::new(Pieces::Pawn(t), current, new));
-                                    }
-                                    if j > 0{
-                                        if self.board[i - 1][j - 1].get_player() == WHITE {
-                                            positions.push(Move::new(Pieces::Pawn(t), current, (j-1, i-1)));
-                                        }
-                                    }
-                                    if j < self.board[i].len()-1 {
-                                        if self.board[i- 1][j + 1].get_player() == WHITE {
-                                            positions.push(Move::new(Pieces::Pawn(t), current, (j+1, i-1)));
-                                        }
-                                    }
-                                }
-                            }
-                        }
+                    Pieces::Pawn(_, _) => {
+                        positions.append(&mut self.get_move(j, i));
                     }
                     Pieces::King(t) => {
                         if t == player {
