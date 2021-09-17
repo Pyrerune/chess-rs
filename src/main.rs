@@ -7,8 +7,9 @@ use std::fs::File;
 use std::fmt::{Display, Formatter};
 use std::str::FromStr;
 use useful_shit::Players::{WHITE, BLACK, NULL};
+use crate::Pieces::King;
 
-
+struct Moves(Vec<Move>);
 trait ToPosition {
     fn to_position(&self) -> (usize, usize);
 }
@@ -34,7 +35,7 @@ impl FromStr for Pieces {
     type Err = ();
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
-        let mut string = s.to_string().to_lowercase();
+        let string = s.to_string().to_lowercase();
         if string.contains("pawn") {
             return Ok(Pieces::Pawn(NULL, 0));
         } else if string.contains("king") {
@@ -134,6 +135,12 @@ impl Display for Chess {
         }
         write!(f, "  A  B  C  D  E  F  G  H");
         Ok(())
+    }
+}
+impl Display for Moves {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        //TODO
+        todo!()
     }
 }
 trait Coords {
@@ -247,12 +254,12 @@ impl Agent {
 
     }
     fn save(&self, filename: String) {
-        let mut file = File::create(filename).expect("Could not create policy");
+        let file = File::create(filename).expect("Could not create policy");
 
         serde_json::to_writer(file, &self.states_value);
     }
     fn try_load(&mut self, filename: String) {
-        let mut file = File::open(filename);
+        let file = File::open(filename);
         if file.is_err() {
             eprintln!("Failed to load agent");
             return;
@@ -280,6 +287,8 @@ impl Chess {
         self.current_player = WHITE;
         self.spawn_pawn(BLACK);
         self.spawn_pawn(WHITE);
+        self.spawn_king(BLACK);
+        self.spawn_king(WHITE);
     }
     fn spawn_pawn(&mut self, player: Players) {
         if player == WHITE {
@@ -298,7 +307,13 @@ impl Chess {
     fn spawn_knight(&mut self, player: i32) {
 
     }
-    fn spawn_king(&mut self, player: i32) {}
+    fn spawn_king(&mut self, player: Players) {
+        if player == WHITE {
+            self.board[7][4] = King(player);
+        } else if player == BLACK {
+            self.board[0][4] = King(player);
+        }
+    }
     fn spawn_queen(&mut self, player: i32) {}
     fn check_pawn_moves(&self, player: Players, x: usize, y: usize, moves: i32) -> Vec<Move> {
         //if white player moves up else player moves down
@@ -359,7 +374,12 @@ impl Chess {
     fn get_move(&self, x: usize, y: usize) -> Vec<Move> {
         match self.board[y][x] {
             Pieces::Pawn(t, i) => {
-                return self.check_pawn_moves(t, x, y, i);
+                if t == self.current_player {
+                    return self.check_pawn_moves(t, x, y, i);
+                }
+                else {
+                    return vec![];
+                }
             }
             Pieces::King(t) => {}
             Pieces::Queen(t) => {}
@@ -498,7 +518,7 @@ impl GameBoard for Chess {
                             //should be good
                             blocked = false;
                             for x in (0..j).rev() {
-                                let mut y = (x as i32 + i as i32 - j as i32);
+                                let y = x as i32 + i as i32 - j as i32;
                                 if y < 0 {
                                     break;
                                 }
@@ -582,7 +602,7 @@ impl GameBoard for Chess {
                             //should be good
                             blocked = false;
                             for x in (0..j).rev() {
-                                let mut y = (x as i32 + i as i32 - j as i32);
+                                let y = (x as i32 + i as i32 - j as i32);
                                 if y < 0 {
                                     break;
                                 }
@@ -689,8 +709,8 @@ fn main() {
         println!("Player {:?}", game.current_player);
         println!("{:?}", game.available_positions(game.current_player));
         let mut player_piece: Pieces = input("Piece: ");
-        let mut current_place: String = input("Current Position: ");
-        let mut new_place: String = input("New Position: ");
+        let current_place: String = input("Current Position: ");
+        let new_place: String = input("New Position: ");
         player_piece = game.reset_piece(player_piece);
         println!("Attempting to move {:?} from {:?} to {:?}", player_piece, current_place.to_position(), new_place.to_position());
         let player_move = Move::new(player_piece, current_place.to_position(), new_place.to_position());
