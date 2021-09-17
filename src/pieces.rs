@@ -35,7 +35,7 @@ pub enum Pieces {
     Empty,
 }
 impl Pieces {
-    fn get_player(self) -> Players {
+    pub(crate) fn get_player(self) -> Players {
         return match self {
             Pieces::Pawn(t, _) => {
                 t

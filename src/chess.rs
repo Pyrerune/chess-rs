@@ -54,7 +54,9 @@ impl Chess {
             }
         }
     }
-    fn spawn_rook(&mut self, _player: i32) {}
+    fn spawn_rook(&mut self, _player: Players) {
+        //TODO next
+    }
     fn spawn_bishop(&mut self, _player: i32) {}
     fn spawn_knight(&mut self, _player: i32) {
 
@@ -76,6 +78,14 @@ impl Chess {
             if moves == 0 {
                 plays.push(Move::new(Pieces::Pawn(player, moves), (x, y), (x, y+2)));
             }
+            let diag_x = x.checked_sub(1).unwrap_or(0);
+            if self.get_piece_at(y+1, diag_x).get_player() == WHITE {
+                plays.push(Move::new(Pieces::Pawn(player, moves), (x,y), (diag_x, y+1)));
+            }
+            if self.get_piece_at(y+1, x+1).get_player() == WHITE {
+                plays.push(Move::new(Pieces::Pawn(player, moves), (x,y), (x+1, y+1)));
+            }
+
             for x in plays {
                 if x.is_valid(&self.board) {
                     available.push(x);
@@ -87,6 +97,15 @@ impl Chess {
             if moves == 0 {
                 plays.push(Move::new(Pieces::Pawn(player, moves), (x, y), (x, y-2)));
             }
+            let diag_x = x.checked_sub(1).unwrap_or(0);
+            let diag_y = y.checked_sub(1).unwrap_or(0);
+
+            if self.get_piece_at(diag_y, diag_x).get_player() == BLACK {
+                plays.push(Move::new(Pieces::Pawn(player, moves), (x,y), (diag_x, diag_y)));
+            }
+            if  self.get_piece_at(diag_y, x+1).get_player() == BLACK {
+                plays.push(Move::new(Pieces::Pawn(player, moves), (x,y), (x+1, diag_y)));
+            }
             for x in plays {
                 if x.is_valid(&self.board) {
                     available.push(x);
@@ -97,8 +116,8 @@ impl Chess {
     }
     fn check_king_moves(&self, player: Players, x: usize, y: usize) -> Vec<Move> {
         let mut available: Vec<Move> = vec![];
-        for j in x-1..=x+1 {
-            for i in y-1..=y+1 {
+        for j in x.checked_sub(1).unwrap_or(0)..=x+1 {
+            for i in y.checked_sub(1).unwrap_or(0)..=y+1 {
                 let play = Move::new(Pieces::King(player), (x, y), (j, i));
                 if play.is_valid(&self.board) {
                     available.push(play);
@@ -132,7 +151,13 @@ impl Chess {
                     vec![]
                 }
             }
-            Pieces::King(_t) => {}
+            Pieces::King(t) => {
+                return if t == self.current_player {
+                    self.check_king_moves(t, x, y)
+                } else {
+                    vec![]
+                }
+            }
             Pieces::Queen(_t) => {}
             Pieces::Rook(_t) => {}
             Pieces::Bishop(_t) => {}
@@ -176,7 +201,11 @@ impl Chess {
         }
     }
     fn get_piece_at(&self, i: usize, j: usize) -> Pieces {
-        *self.board.get(i).unwrap_or(&vec![Pieces::King(NULL); 8]).get(j).unwrap_or(&Pieces::King(NULL))
+        return if i >= 0 && i < self.board.len() && j >= 0 && j < self.board[i].len() {
+            self.board[i][j]
+        } else {
+            King(NULL)
+        }
     }
 }
 
@@ -194,16 +223,8 @@ impl GameBoard for Chess {
                     Pieces::Pawn(_, _) => {
                         positions.append(&mut self.get_move(j, i));
                     }
-                    Pieces::King(t) => {
-                        if t == player {
-                            for y in i.checked_sub(1).unwrap_or(0)..=i + 1 {
-                                for x in j.checked_sub(1).unwrap_or(0)..=j + 1 {
-                                    if self.get_piece_at(y, x) == Pieces::Empty {
-                                        positions.push(Move::new(Pieces::King(t), (j, i), (x, y)));
-                                    }
-                                }
-                            }
-                        }
+                    Pieces::King(_t) => {
+                        positions.append(&mut self.get_move(j, i));
                     }
                     Pieces::Queen(t) => {
                         if t == player {
@@ -437,12 +458,6 @@ impl GameBoard for Chess {
     }
 
     fn update(&mut self, play: Self::Play) -> Result<(), ()> {
-        let moves = self.available_positions(self.current_player);
-        let available_plays = moves.get_inner();
-        if !available_plays.contains(&play) {
-            eprintln!("Not a valid play");
-            return Err(());
-        }
         if let Pawn(p, i) = play.get_piece() {
             self.board[play.get_new_position().1][play.get_new_position().0] = Pawn(p, i+1);
         } else {

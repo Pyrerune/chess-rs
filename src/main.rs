@@ -54,16 +54,15 @@ fn main() {
         println!("{}", game);
         println!("Player {:?}", game.get_current_player());
         println!("{}", game.available_positions(game.get_current_player()));
-        let mut player_piece: Pieces = input("Piece: ");
-        let current_place: String = input("Current Position: ");
-        let new_place: String = input("New Position: ");
-        player_piece = game.reset_piece(player_piece);
-        println!("Attempting to move {:?} from {:?} to {:?}", player_piece, current_place.to_position(), new_place.to_position());
-        let player_move = Move::new(player_piece, current_place.to_position(), new_place.to_position());
-        game.update(player_move);
+        let possible_moves = game.available_positions(game.get_current_player());
+        let possible_moves = possible_moves.get_inner();
+        let choice: usize = input("Move #: ");
+
+        game.update(possible_moves[choice]);
     }
 
 }
 
-//TODO pawn two square movement
-//TODO the ability to take
+//TODO OTHER PIECE MOVEMENTS
+//TODO IMPLEMENT AI
+//TODO GET SOME DOCUMENTATION GOING
