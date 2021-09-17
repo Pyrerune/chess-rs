@@ -1,6 +1,6 @@
 use crate::pieces::Pieces;
 use useful_shit::Players::{self, WHITE, BLACK, NULL};
-use crate::pieces::Pieces::{King, Pawn};
+use crate::pieces::Pieces::{King, Pawn, Rook};
 use useful_shit::GameBoard;
 use std::fmt::{Display, Formatter};
 use crate::agent::Agent;
@@ -37,25 +37,36 @@ impl Chess {
     #[cfg(feature = "test")]
     fn reset_inner(&mut self) {
         self.current_player = WHITE;
-        self.spawn_pawn(BLACK);
-        self.spawn_pawn(WHITE);
-        self.spawn_king(BLACK);
-        self.spawn_king(WHITE);
+        self.spawn_rook(WHITE);
+        self.spawn_rook(BLACK);
     }
     fn spawn_pawn(&mut self, player: Players) {
-        if player == WHITE {
-            for x in 0..self.board[0].len() {
-                self.board[6][x] = Pieces::Pawn(player, 0);
+        match player {
+            WHITE => {
+                for x in 0..self.board[0].len() {
+                    self.board[6][x] = Pieces::Pawn(player, 0);
+                }
+            },
+            BLACK => {
+                for x in 0..self.board[0].len() {
+                    self.board[1][x] = Pieces::Pawn(player, 0);
+                }
             }
-        }
-        if player == BLACK {
-            for x in 0..self.board[0].len() {
-                self.board[1][x] = Pieces::Pawn(player, 0);
-            }
+            _ => {}
         }
     }
-    fn spawn_rook(&mut self, _player: Players) {
-        //TODO next
+    fn spawn_rook(&mut self, player: Players) {
+        match player {
+            WHITE => {
+                self.board[7][0] = Rook(player);
+                self.board[7][7] = Rook(player);
+            }
+            BLACK => {
+                self.board[0][0] = Rook(player);
+                self.board[0][7] = Rook(player);
+            }
+            NULL => {}
+        }
     }
     fn spawn_bishop(&mut self, _player: i32) {}
     fn spawn_knight(&mut self, _player: i32) {
@@ -126,6 +137,7 @@ impl Chess {
         }
         available
     }
+    //TODO FINISH ROOK
     fn can_move(&self, x: usize, y: usize) -> bool {
         match self.board[y][x] {
             Pieces::Pawn(t, i) => {
