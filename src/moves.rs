@@ -50,6 +50,9 @@ impl Move {
     pub fn get_piece(&self) -> Pieces {
         self.piece
     }
+    pub fn set_piece(&mut self, piece: Pieces) {
+        self.piece = piece;
+    }
     pub fn get_new_position(&self) -> (usize, usize) {
         self.new_position
     }

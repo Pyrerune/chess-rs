@@ -1,10 +1,12 @@
 use crate::pieces::Pieces;
 use useful_shit::Players::{self, WHITE, BLACK, NULL};
-use crate::pieces::Pieces::{King, Pawn, Rook};
+use crate::pieces::Pieces::{King, Pawn, Rook, Queen, Bishop, Knight};
 use useful_shit::GameBoard;
 use std::fmt::{Display, Formatter};
 use crate::agent::Agent;
 use crate::moves::{Move, Moves};
+use std::mem::take;
+
 #[derive(Debug, Clone)]
 pub struct Chess {
     board: Vec<Vec<Pieces>>,
@@ -20,16 +22,19 @@ pub struct Chess {
 impl Chess {
     #[cfg(feature = "run")]
     fn reset_inner(&mut self) {
-        self.board = vec![
-            vec![Pieces::Rook(-1), Pieces::Knight(-1), Pieces::Bishop(-1), Pieces::Queen(-1), Pieces::King(-1), Pieces::Bishop(-1), Pieces::Knight(-1), Pieces::Rook(-1)],
-            vec![Pieces::Pawn(-1);8],
-            vec![Pieces::Empty;8],
-            vec![Pieces::Empty;8],
-            vec![Pieces::Empty;8],
-            vec![Pieces::Empty;8],
-            vec![Pieces::Pawn(1);8],
-            vec![Pieces::Rook(1), Pieces::Knight(1), Pieces::Bishop(1), Pieces::Queen(1), Pieces::King(1), Pieces::Bishop(1), Pieces::Knight(1), Pieces::Rook(1)],
-        ];
+
+        self.spawn_rook(WHITE);
+        self.spawn_pawn(WHITE);
+        self.spawn_king(WHITE);
+        self.spawn_queen(WHITE);
+        self.spawn_bishop(WHITE);
+        self.spawn_knight(WHITE);
+        self.spawn_knight(BLACK);
+        self.spawn_bishop(BLACK);
+        self.spawn_rook(BLACK);
+        self.spawn_pawn(BLACK);
+        self.spawn_king(BLACK);
+        self.spawn_queen(BLACK);
     }
     pub fn get_current_player(&self) -> Players {
         self.current_player
@@ -37,8 +42,10 @@ impl Chess {
     #[cfg(feature = "test")]
     fn reset_inner(&mut self) {
         self.current_player = WHITE;
-        self.spawn_rook(WHITE);
-        self.spawn_rook(BLACK);
+        self.spawn_king(WHITE);
+        //self.spawn_pawn(BLACK);
+        self.board[6][3] = Pawn(BLACK, 0);
+        self.spawn_knight(WHITE);
     }
     fn spawn_pawn(&mut self, player: Players) {
         match player {
@@ -58,7 +65,7 @@ impl Chess {
     fn spawn_rook(&mut self, player: Players) {
         match player {
             WHITE => {
-                self.board[7][5] = Rook(player);
+                self.board[7][0] = Rook(player);
                 self.board[7][7] = Rook(player);
             }
             BLACK => {
@@ -68,9 +75,31 @@ impl Chess {
             NULL => {}
         }
     }
-    fn spawn_bishop(&mut self, _player: i32) {}
-    fn spawn_knight(&mut self, _player: i32) {
-
+    fn spawn_bishop(&mut self, player: Players) {
+        match player {
+            WHITE => {
+                self.board[7][2] = Bishop(player);
+                self.board[7][5] = Bishop(player);
+            }
+            BLACK => {
+                self.board[0][2] = Bishop(player);
+                self.board[0][5] = Bishop(player);
+            }
+            _ => {}
+        }
+    }
+    fn spawn_knight(&mut self, player: Players) {
+        match player {
+            WHITE => {
+                self.board[7][1] = Knight(player);
+                self.board[7][6] = Knight(player);
+            }
+            BLACK => {
+                self.board[0][1] = Knight(player);
+                self.board[0][6] = Knight(player);
+            }
+            _ => {}
+        }
     }
     fn spawn_king(&mut self, player: Players) {
         if player == WHITE {
@@ -79,14 +108,24 @@ impl Chess {
             self.board[0][4] = King(player);
         }
     }
-    fn spawn_queen(&mut self, _player: i32) {}
+    fn spawn_queen(&mut self, player: Players) {
+        match player {
+            WHITE => {
+                self.board[7][3] = Queen(player);
+            }
+            BLACK => {
+                self.board[0][3] = Queen(player);
+            }
+            _ => {}
+        }
+    }
     fn check_pawn_moves(&self, player: Players, x: usize, y: usize, moves: i32) -> Vec<Move> {
         //if white player moves up else player moves down
         let mut available: Vec<Move> = vec![];
         if player == Players::BLACK {
-            let mut plays = vec![
-                Move::new(Pieces::Pawn(player, moves), (x, y), (x, y+1))];
-            if moves == 0 {
+            let first = Move::new(Pieces::Pawn(player, moves), (x, y), (x, y+1));
+            let mut plays = vec![first];
+            if moves == 0 && self.is_pos_empty(first) {
                 plays.push(Move::new(Pieces::Pawn(player, moves), (x, y), (x, y+2)));
             }
             let diag_x = x.checked_sub(1).unwrap_or(0);
@@ -103,9 +142,9 @@ impl Chess {
                 }
             }
         } else if player == Players::WHITE {
-            let mut plays = vec![
-                Move::new(Pieces::Pawn(player, moves), (x, y), (x, y-1))];
-            if moves == 0 {
+            let first = Move::new(Pieces::Pawn(player, moves), (x, y), (x, y-1));
+            let mut plays = vec![first];
+            if moves == 0 && self.is_pos_empty(first) {
                 plays.push(Move::new(Pieces::Pawn(player, moves), (x, y), (x, y-2)));
             }
             let diag_x = x.checked_sub(1).unwrap_or(0);
@@ -206,7 +245,146 @@ impl Chess {
         }
         available
     }
-    //TODO queen next
+    fn check_queen_moves(&self, player: Players, x: usize, y: usize) -> Vec<Move> {
+        let mut available: Vec<Move> = vec![];
+        //reuse rook code for straight lines
+        let mut lines = self.check_rook_moves(player, x, y);
+        for x in lines {
+            let mut copy = x.clone();
+            copy.set_piece(Queen(player));
+            available.push(copy);
+        }
+        let mut diags = self.check_bishop_moves(player, x, y);
+        for y in diags {
+            let mut copy = y.clone();
+            copy.set_piece(Queen(player));
+            available.push(copy);
+        }
+        available
+    }
+    fn check_bishop_moves(&self, player: Players, x: usize, y: usize) -> Vec<Move> {
+        let mut available: Vec<Move> = vec![];
+        //check moves from current x to zero
+        //y is calculated the same as x
+        let mut j = x;
+        let mut i = y;
+        let mut empty = true;
+        let mut play: Move;
+        if j <= 0 || i <= 0 {
+            empty = false;
+        } else {
+            i-=1;
+            j-=1;
+            play = Move::new(Pieces::Bishop(player), (x, y), (j, i));
+            empty = self.is_pos_empty(play);
+        }
+        //diagonal to the left and up
+        while empty {
+            play = Move::new(Pieces::Bishop(player), (x,y), (j, i));
+            empty = self.is_pos_empty(play);
+            if j > 0 && i > 0 {
+                j -=1;
+                i -=1;
+            } else {
+                empty = false;
+            }
+            if play.is_valid(&self.board) {
+                available.push(play);
+            }
+        }
+        j = x;
+        i = y;
+        //diagonal left and down
+        play = Move::new(Pieces::Bishop(player), (x, y), (j, i));
+        if j <= 0 || i >= self.board.len() {
+            empty = false;
+        } else {
+            i+=1;
+            j-=1;
+            play = Move::new(Pieces::Bishop(player), (x, y), (j, i));
+            empty = self.is_pos_empty(play);
+        }
+        while empty {
+            play = Move::new(Pieces::Bishop(player), (x,y), (j, i));
+            empty = self.is_pos_empty(play);
+            if j > 0 && i < self.board.len() {
+                j -=1;
+                i +=1;
+            } else {
+                empty = false;
+            }
+            if play.is_valid(&self.board) {
+                available.push(play);
+            }
+        }
+        j = x;
+        i = y;
+        //diagonal right and up
+        play = Move::new(Pieces::Bishop(player), (x, y), (j, i));
+        if j >= self.board.len() || i <= 0 {
+            empty = false;
+        } else {
+            i-=1;
+            j+=1;
+            play = Move::new(Pieces::Bishop(player), (x, y), (j, i));
+            empty = self.is_pos_empty(play);
+        }
+        while empty {
+            play = Move::new(Pieces::Bishop(player), (x,y), (j, i));
+            empty = self.is_pos_empty(play);
+            if j < self.board.len() && i > 0 {
+                j +=1;
+                i -=1;
+            } else {
+                empty = false;
+            }
+            if play.is_valid(&self.board) {
+                available.push(play);
+            }
+        }
+        j = x;
+        i = y;
+        //diagonal right and down
+        play = Move::new(Pieces::Bishop(player), (x, y), (j, i));
+        if j >= self.board.len() || i >= self.board.len() {
+            empty = false;
+        } else {
+            i+=1;
+            j+=1;
+            play = Move::new(Pieces::Bishop(player), (x, y), (j, i));
+            empty = self.is_pos_empty(play);
+        }
+        while empty {
+            play = Move::new(Pieces::Bishop(player), (x,y), (j, i));
+            empty = self.is_pos_empty(play);
+            if j < self.board.len() && i < self.board.len() {
+                j +=1;
+                i +=1;
+            } else {
+                empty = false;
+            }
+            if play.is_valid(&self.board) {
+                available.push(play);
+            }
+        }
+        available
+    }
+    fn check_knight_moves(&self, player: Players, x: usize, y: usize) -> Vec<Move> {
+        let mut available: Vec<Move> = vec![];
+        let mut i = y as i32;
+        let mut j = x as i32;
+        let pos = [((j - 1) as usize, (i - 2) as usize), ((j + 1) as usize, (i - 2) as usize),
+            ((j + 2) as usize, (i - 1) as usize), ((j - 2) as usize, (i - 1) as usize),
+            ((j + 2) as usize, (i + 1) as usize), ((j - 2) as usize, (i + 1) as usize),
+            ((j - 1) as usize, (i + 2) as usize), ((j + 1) as usize, (i + 2) as usize)];
+        for position in pos {
+            let play = Move::new(Knight(player), (x, y), position);
+            if play.is_valid(&self.board) && self.is_pos_empty(play) {
+                available.push(play);
+            }
+        }
+        available
+    }
     fn can_move(&self, x: usize, y: usize) -> bool {
         match self.board[y][x] {
             Pieces::Pawn(t, i) => {
@@ -215,42 +393,66 @@ impl Chess {
             Pieces::King(t) => {
                 return !self.check_king_moves(t, x, y).is_empty();
             }
-            Pieces::Queen(_t) => {}
+            Pieces::Queen(t) => {
+                return !self.check_queen_moves(t, x, y).is_empty();
+            }
             Pieces::Rook(t) => {
                 return !self.check_rook_moves(t, x, y).is_empty();
             }
-            Pieces::Bishop(_t) => {}
-            Pieces::Knight(_t) => {}
+            Pieces::Bishop(t) => {
+                return !self.check_bishop_moves(t, x, y).is_empty();
+            }
+            Pieces::Knight(t) => {
+                return !self.check_knight_moves(t, x, y).is_empty();
+            }
             Pieces::Empty => {}
         }
         false
     }
-    fn get_move(&self, x: usize, y: usize) -> Vec<Move> {
+    fn get_move(&self, player: Players, x: usize, y: usize) -> Vec<Move> {
         match self.board[y][x] {
             Pieces::Pawn(t, i) => {
-                return if t == self.current_player {
+                return if t == player {
                     self.check_pawn_moves(t, x, y, i)
                 } else {
                     vec![]
                 }
             }
             Pieces::King(t) => {
-                return if t == self.current_player {
+                return if t == player {
                     self.check_king_moves(t, x, y)
                 } else {
                     vec![]
                 }
             }
-            Pieces::Queen(_t) => {}
+            Pieces::Queen(t) => {
+                return if t == player {
+                    self.check_queen_moves(t, x, y)
+                } else {
+                    vec![]
+                }
+            }
             Pieces::Rook(t) => {
-                return if t == self.current_player {
+                return if t == player {
                     self.check_rook_moves(t, x, y)
                 } else {
                     vec![]
                 }
             }
-            Pieces::Bishop(_t) => {}
-            Pieces::Knight(_t) => {}
+            Pieces::Bishop(t) => {
+                return if t == player {
+                    self.check_bishop_moves(t, x, y)
+                } else {
+                    vec![]
+                }
+            }
+            Pieces::Knight(t) => {
+                return if t == player {
+                    self.check_knight_moves(t, x, y)
+                } else {
+                    vec![]
+                }
+            }
             Pieces::Empty => {}
         }
         return vec![];
@@ -302,6 +504,38 @@ impl Chess {
         let you = play.get_piece().get_player();
         player != you || player ==NULL
     }
+    fn get_king_pos(&self, player: Players) -> (usize, usize) {
+
+        for i in 0..self.board.len() {
+            for j in 0..self.board[i].len() {
+                if self.board[i][j] == King(player) {
+                    return (j, i);
+                }
+            }
+        }
+        (usize::MAX, usize::MAX)
+    }
+    //TODO IMPLEMENT CHECKING
+    pub fn check_king_safety(&self, player: Players) -> bool {
+        let mut moves: Moves = Moves::new(vec![]);
+        let mut king_pos = self.get_king_pos(player);
+        match player {
+            WHITE => {
+                moves = self.available_positions(BLACK);
+            }
+            BLACK => {
+                moves = self.available_positions(WHITE);
+            }
+            NULL => {}
+        }
+        let moves = moves.get_inner();
+        for play in moves {
+            if play.get_new_position() == king_pos {
+                return false;
+            }
+        }
+        true
+    }
 }
 
 impl GameBoard for Chess {
@@ -314,195 +548,28 @@ impl GameBoard for Chess {
         let mut positions: Vec<Move> = vec![];
         for i in 0..self.board.len() {
             for j in 0..self.board[i].len() {
-                match self.board[i][j] {
+                positions.append(&mut self.get_move(player, j, i));
+                /*match self.board[i][j] {
                     Pieces::Pawn(_, _) => {
                         positions.append(&mut self.get_move(j, i));
                     }
                     Pieces::King(_t) => {
                         positions.append(&mut self.get_move(j, i));
                     }
-                    Pieces::Queen(t) => {
-                        if t == player {
-                            //check vertical
-                            let mut blocked = false;
-                            for y in i..self.board.len() {
-                                if self.get_piece_at(y, j) == Pieces::Empty && !blocked {
-                                    positions.push(Move::new(Pieces::Queen(t), (j, i), (j, y)));
-                                } else {
-                                    blocked = true;
-                                }
-                            }
-                            blocked = false;
-                            for y in (0..i).rev() {
-                                if self.get_piece_at(y, j) == Pieces::Empty && !blocked {
-                                    positions.push(Move::new(Pieces::Queen(t), (j, i), (j, y)));
-                                } else {
-                                    blocked = true;
-                                }
-                            }
-
-                            //check horizontal
-                            blocked = false;
-                            for x in j..self.board[i].len() {
-                                if self.get_piece_at(i, x) == Pieces::Empty && !blocked {
-                                    positions.push(Move::new(Pieces::Queen(t), (j, i), (x, i)));
-                                } else {
-                                    blocked = true;
-                                }
-                            }
-                            blocked = false;
-                            for x in (0..j).rev() {
-                                if self.get_piece_at(i, x) == Pieces::Empty && !blocked {
-                                    positions.push(Move::new(Pieces::Queen(t), (j, i), (x, i)));
-                                } else {
-                                    blocked = true;
-                                }
-                            }
-                            //check diagonal
-                            //should be good
-                            blocked = false;
-                            for x in j..self.board[i].len() {
-                                if self.get_piece_at(x + i - j, x) == Pieces::Empty && !blocked {
-                                    positions.push(Move::new(Pieces::Queen(t), (j, i), (x, x + i - j)));
-                                } else {
-                                    blocked = true
-                                }
-                            }
-                            //should be good
-                            blocked = false;
-                            for x in j..self.board[i].len() {
-                                if (i as i32 - (x - j) as i32) < 0 {
-                                    break;
-                                }
-                                //TODO keep an eye on this
-                                if self.get_piece_at((i as i32 - (x - j) as i32) as usize, x) == Pieces::Empty && !blocked {
-                                    positions.push(Move::new(Pieces::Queen(t), (j, i), (x, (i as i32 - (x - j) as i32) as usize)));
-                                } else {
-                                    blocked = true;
-                                }
-                            }
-                            //should be good
-                            blocked = false;
-                            for x in (0..j).rev() {
-                                let y = x as i32 + i as i32 - j as i32;
-                                if y < 0 {
-                                    break;
-                                }
-                                let y = y as usize;
-                                if self.get_piece_at(y, x) == Pieces::Empty && !blocked {
-                                    positions.push(Move::new(Pieces::Queen(t), (j, i), (x, y)));
-                                } else {
-                                    blocked = true;
-                                }
-                            }
-                            //should be good
-                            blocked = false;
-                            for x in (0..j).rev() {
-                                let y = i as i32 - x as i32 + j as i32;
-                                if self.get_piece_at(y as usize, x) == Pieces::Empty && !blocked {
-                                    positions.push(Move::new(Pieces::Queen(t), (j, i), (x, y as usize)));
-                                } else {
-                                    blocked = true;
-                                }
-                            }
-                        }
+                    Pieces::Queen(_t) => {
+                        positions.append(&mut self.get_move(j, i));
                     }
                     Pieces::Rook(_t) => {
                         positions.append(&mut self.get_move(j, i));
                     }
                     Pieces::Bishop(t) => {
-                        if t == player {
-                            let mut blocked = false;
-                            for x in j..self.board[i].len() {
-                                if self.get_piece_at(x + i - j, x) == Pieces::Empty && !blocked {
-                                    positions.push(Move::new(Pieces::Bishop(t), (j, i), (x, x + i - j)));
-                                } else {
-                                    blocked = true
-                                }
-                            }
-                            //should be good
-                            blocked = false;
-                            for x in j..self.board[i].len() {
-                                if (i as i32 - (x - j) as i32) < 0 {
-                                    break;
-                                }
-                                //TODO keep an eye on this
-                                if self.get_piece_at((i as i32 - (x - j) as i32) as usize, x) == Pieces::Empty && !blocked {
-                                    positions.push(Move::new(Pieces::Bishop(t), (j, i), (x, (i as i32 - (x - j) as i32) as usize)));
-                                } else {
-                                    blocked = true;
-                                }
-                            }
-                            //should be good
-                            blocked = false;
-                            for x in (0..j).rev() {
-                                let y = (x as i32 + i as i32 - j as i32);
-                                if y < 0 {
-                                    break;
-                                }
-                                let y = y as usize;
-                                if self.get_piece_at(y, x) == Pieces::Empty && !blocked {
-                                    positions.push(Move::new(Pieces::Bishop(t), (j, i), (x, y)));
-                                } else {
-                                    blocked = true;
-                                }
-                            }
-                            //should be good
-                            blocked = false;
-                            for x in (0..j).rev() {
-                                let y = i as i32 - x as i32 + j as i32;
-                                if self.get_piece_at(y as usize, x) == Pieces::Empty && !blocked {
-                                    positions.push(Move::new(Pieces::Bishop(t), (j, i), (x, y as usize)));
-                                } else {
-                                    blocked = true;
-                                }
-                            }
-                        }
+                        positions.append(&mut self.get_move(j, i));
                     }
                     Pieces::Knight(t) => {
-                        if t == player {
-                            //have to hard code this one
-                            let x = j as i32;
-                            let y = i as i32;
-                            let tl = ((x - 1) as usize, (y - 2) as usize);
-                            let tr = ((x + 1) as usize, (y - 2) as usize);
-
-                            let mr1 = ((x + 2) as usize, (y - 1) as usize);
-                            let ml1 = ((x - 2) as usize, (y - 1) as usize);
-
-                            let mr2 = ((x + 2) as usize, (y + 1) as usize);
-                            let ml2 = ((x - 2) as usize, (y + 1) as usize);
-
-                            let bl = ((x - 1) as usize, (y + 2) as usize);
-                            let br = ((x + 1) as usize, (y + 2) as usize);
-                            if self.get_piece_at(tl.1, tl.0) == Pieces::Empty {
-                                positions.push(Move::new(Pieces::Knight(t), (j, i), tl));
-                            }
-                            if self.get_piece_at(tr.1, tr.0) == Pieces::Empty {
-                                positions.push(Move::new(Pieces::Knight(t), (j, i), tr));
-                            }
-                            if self.get_piece_at(mr1.1, mr1.0) == Pieces::Empty {
-                                positions.push(Move::new(Pieces::Knight(t), (j, i), mr1));
-                            }
-                            if self.get_piece_at(ml1.1, ml1.0) == Pieces::Empty {
-                                positions.push(Move::new(Pieces::Knight(t), (j, i), ml1));
-                            }
-                            if self.get_piece_at(mr2.1, mr2.0) == Pieces::Empty {
-                                positions.push(Move::new(Pieces::Knight(t), (j, i), mr2));
-                            }
-                            if self.get_piece_at(ml2.1, ml2.0) == Pieces::Empty {
-                                positions.push(Move::new(Pieces::Knight(t), (j, i), ml2));
-                            }
-                            if self.get_piece_at(bl.1, bl.0) == Pieces::Empty {
-                                positions.push(Move::new(Pieces::Knight(t), (j, i), bl));
-                            }
-                            if self.get_piece_at(br.1, br.0) == Pieces::Empty {
-                                positions.push(Move::new(Pieces::Knight(t), (j, i), br));
-                            }
-                        }
+                        positions.append(&mut self.get_move(j, i));
                     }
                     Pieces::Empty => {}
-                }
+                }*/
             }
         }
         Moves::new(positions)

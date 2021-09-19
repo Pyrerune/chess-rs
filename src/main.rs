@@ -16,7 +16,7 @@ use useful_shit::Players::{WHITE, BLACK, NULL};
 use pieces::Pieces;
 use crate::traits::*;
 use crate::chess::Chess;
-use crate::moves::Move;
+use crate::moves::{Move, Moves};
 
 impl ToPosition for String {
     fn to_position(&self) -> (usize, usize) {
@@ -53,9 +53,8 @@ fn main() {
     loop {
         println!("{}", game);
         println!("Player {:?}", game.get_current_player());
-        println!("{}", game.available_positions(game.get_current_player()));
         let possible_moves = game.available_positions(game.get_current_player());
-        let possible_moves = possible_moves.get_inner();
+        println!("{}", possible_moves.clone());
         let choice: usize = input("Move #: ");
 
         game.update(possible_moves[choice]);
