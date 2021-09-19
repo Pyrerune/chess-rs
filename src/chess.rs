@@ -58,7 +58,7 @@ impl Chess {
     fn spawn_rook(&mut self, player: Players) {
         match player {
             WHITE => {
-                self.board[7][0] = Rook(player);
+                self.board[7][5] = Rook(player);
                 self.board[7][7] = Rook(player);
             }
             BLACK => {
@@ -137,7 +137,76 @@ impl Chess {
         }
         available
     }
-    //TODO FINISH ROOK
+    fn check_rook_moves(&self, player: Players, x: usize, y: usize) -> Vec<Move> {
+        let mut available: Vec<Move> = vec![];
+        //X start from the rook going to 0
+        let mut j = x.checked_sub(1).unwrap_or(0);
+        let mut play = Move::new(Pieces::Rook(player), (x, y), (j, y));
+        let mut empty = self.is_pos_empty(play);
+        while empty {
+            play = Move::new(Pieces::Rook(player), (x,y), (j, y));
+            empty = self.is_pos_empty(play);
+            if j > 0 {
+                j -=1;
+            } else {
+                empty = false;
+            }
+            if play.is_valid(&self.board) {
+                available.push(play);
+            }
+        }
+
+        //X start from the rook going to the end of the board
+        j = x+1;
+        play = Move::new(Pieces::Rook(player), (x, y), (j, y));
+        empty = self.is_pos_empty(play);
+        while empty {
+            play = Move::new(Pieces::Rook(player), (x,y), (j, y));
+            empty = self.is_pos_empty(play);
+            if j < self.board.len() {
+                j +=1;
+            } else {
+                empty = false;
+            }
+            if play.is_valid(&self.board) {
+                available.push(play);
+            }
+        }
+
+        //Y start from the rook going to 0
+        let mut i = y.checked_sub(1).unwrap_or(0);
+        play = Move::new(Pieces::Rook(player), (x,y), (x, i));
+        empty = self.is_pos_empty(play);
+        while empty {
+            play = Move::new(Pieces::Rook(player), (x,y), (x, i));
+            empty = self.is_pos_empty(play);
+            if i > 0 {
+                i-=1;
+            } else {
+                empty = false;
+            }
+            if play.is_valid(&self.board) {
+                available.push(play);
+            }
+        }
+        i = y+1;
+        play = Move::new(Pieces::Rook(player), (x,y), (x, i));
+        empty = self.is_pos_empty(play);
+        while empty {
+            play = Move::new(Pieces::Rook(player), (x,y), (x, i));
+            empty = self.is_pos_empty(play);
+            if i < self.board.len() {
+                i+=1;
+            } else {
+                empty = false;
+            }
+            if play.is_valid(&self.board) {
+                available.push(play);
+            }
+        }
+        available
+    }
+    //TODO queen next
     fn can_move(&self, x: usize, y: usize) -> bool {
         match self.board[y][x] {
             Pieces::Pawn(t, i) => {
@@ -147,7 +216,9 @@ impl Chess {
                 return !self.check_king_moves(t, x, y).is_empty();
             }
             Pieces::Queen(_t) => {}
-            Pieces::Rook(_t) => {}
+            Pieces::Rook(t) => {
+                return !self.check_rook_moves(t, x, y).is_empty();
+            }
             Pieces::Bishop(_t) => {}
             Pieces::Knight(_t) => {}
             Pieces::Empty => {}
@@ -171,7 +242,13 @@ impl Chess {
                 }
             }
             Pieces::Queen(_t) => {}
-            Pieces::Rook(_t) => {}
+            Pieces::Rook(t) => {
+                return if t == self.current_player {
+                    self.check_rook_moves(t, x, y)
+                } else {
+                    vec![]
+                }
+            }
             Pieces::Bishop(_t) => {}
             Pieces::Knight(_t) => {}
             Pieces::Empty => {}
@@ -218,6 +295,12 @@ impl Chess {
         } else {
             King(NULL)
         }
+    }
+    fn is_pos_empty(&self, play: Move) -> bool {
+        let position = play.get_new_position();
+        let player = self.get_piece_at(position.1, position.0).get_player();
+        let you = play.get_piece().get_player();
+        player != you || player ==NULL
     }
 }
 
@@ -279,8 +362,6 @@ impl GameBoard for Chess {
                             //should be good
                             blocked = false;
                             for x in j..self.board[i].len() {
-                                //println!("{} {}", x, i as i32-(x-j) as i32);
-                                //println!("{} {:?}", (x, x+i-j), self.get_piece_at(x+i-j, x));
                                 if self.get_piece_at(x + i - j, x) == Pieces::Empty && !blocked {
                                     positions.push(Move::new(Pieces::Queen(t), (j, i), (x, x + i - j)));
                                 } else {
@@ -326,45 +407,13 @@ impl GameBoard for Chess {
                             }
                         }
                     }
-                    Pieces::Rook(t) => {
-                        if t == player {
-                            let mut blocked = false;
-                            for x in (0..j).rev() {
-                                if self.get_piece_at(i, x) == Pieces::Empty && !blocked {
-                                    positions.push(Move::new(Pieces::Rook(t), (j, i), (x, i)));
-                                } else {
-                                    blocked = true;
-                                }
-                            }
-                            for x in j..self.board[i].len() {
-                                if self.get_piece_at(i, x) == Pieces::Empty && !blocked {
-                                    positions.push(Move::new(Pieces::Rook(t), (j, i), (x, i)));
-                                } else {
-                                    blocked = true;
-                                }
-                            }
-                            for y in (0..i).rev() {
-                                if self.get_piece_at(y, j) == Pieces::Empty && !blocked {
-                                    positions.push(Move::new(Pieces::Rook(t), (j, i), (j, y)));
-                                } else {
-                                    blocked = true;
-                                }
-                            }
-                            for y in i..self.board.len() {
-                                if self.get_piece_at(y, j) == Pieces::Empty && !blocked {
-                                    positions.push(Move::new(Pieces::Rook(t), (j, i), (j, y)));
-                                } else {
-                                    blocked = true;
-                                }
-                            }
-                        }
+                    Pieces::Rook(_t) => {
+                        positions.append(&mut self.get_move(j, i));
                     }
                     Pieces::Bishop(t) => {
                         if t == player {
                             let mut blocked = false;
                             for x in j..self.board[i].len() {
-                                //println!("{} {}", x, i as i32-(x-j) as i32);
-                                //println!("{} {:?}", (x, x+i-j), self.get_piece_at(x+i-j, x));
                                 if self.get_piece_at(x + i - j, x) == Pieces::Empty && !blocked {
                                     positions.push(Move::new(Pieces::Bishop(t), (j, i), (x, x + i - j)));
                                 } else {

@@ -46,6 +46,7 @@ impl Move {
             && (board[self.new_position.1][self.new_position.0].get_player() != self.piece.get_player())
 
     }
+
     pub fn get_piece(&self) -> Pieces {
         self.piece
     }
