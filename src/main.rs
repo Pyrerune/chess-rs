@@ -56,7 +56,7 @@ fn main() {
         let possible_moves = game.available_positions(game.get_current_player());
         println!("{}", possible_moves.clone());
         let choice: usize = input("Move #: ");
-
+        let possible_moves = possible_moves.get_inner();
         game.update(possible_moves[choice]);
     }
 
