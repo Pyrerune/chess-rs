@@ -1,27 +1,79 @@
 use crate::pieces::Pieces;
 use useful_shit::Players::{self, WHITE, BLACK, NULL};
-use crate::pieces::Pieces::{King, Pawn, Rook, Queen, Bishop, Knight};
-use useful_shit::GameBoard;
+use crate::pieces::Pieces::{King, Pawn, Rook, Queen, Bishop, Knight, Empty};
+use useful_shit::{GameBoard, AiFunctions, compress};
 use std::fmt::{Display, Formatter};
 use crate::agent::Agent;
 use crate::moves::{Move, Moves};
-use std::mem::take;
 
 #[derive(Debug, Clone)]
 pub struct Chess {
-    board: Vec<Vec<Pieces>>,
-    winner: i32,
+    pub board: Vec<Vec<Pieces>>,
+    winner: Players,
     current_player: Players,
     hash: String,
-    p1: Agent,
-    p2: Agent,
+    white: Agent,
+    black: Agent,
     is_end: bool,
 
 }
 
 impl Chess {
+    pub fn train(&mut self, rounds: i32) {
+        for i in 0..rounds {
+            println!("Round: {}", i);
+            while !self.is_end {
+                let mut positions = self.available_positions(WHITE);
+                let mut available = positions.get_inner();
+                let white_action = self.white.choose_action(available.clone(), self.clone(), NULL);
+                self.update(white_action);
+                let board_hash = compress(self.board.clone());
+                self.white.states.push(board_hash);
+
+                println!("White {}", self.clone());
+                let winner = self.check_winner();
+                if winner.is_some() {
+                    self.give_reward();
+                    self.save_winner();
+                    self.white.reset();
+                    self.black.reset();
+                    self.reset();
+                    break;
+                } else {
+                    let mut positions = self.available_positions(BLACK);
+                    let mut available = positions.get_inner();
+                    let black_action = self.black.choose_action(available.clone(), self.clone(), NULL);
+                    self.update(black_action);
+                    let board_hash = compress(self.board.clone());
+                    self.white.states.push(board_hash);
+
+                    println!("Black {}", self.clone());
+                    let winner = self.check_winner();
+                    if winner.is_some() {
+                        self.give_reward();
+                        self.save_winner();
+                        self.white.reset();
+                        self.black.reset();
+                        self.reset();
+                        break;
+                    }
+                }
+            }
+        }
+    }
+    fn contains_king(&self, player: Players) -> bool {
+        for i in 0..self.board.len() {
+            for j in 0..self.board[i].len() {
+                if self.board[i][j] == King(player) {
+                    return true;
+                }
+            }
+        }
+        false
+    }
     #[cfg(feature = "run")]
     fn reset_inner(&mut self) {
+        self.board = vec![vec![Pieces::Empty;8];8];
 
         self.spawn_rook(WHITE);
         self.spawn_pawn(WHITE);
@@ -42,10 +94,9 @@ impl Chess {
     #[cfg(feature = "test")]
     fn reset_inner(&mut self) {
         self.current_player = WHITE;
-        self.spawn_king(WHITE);
+        self.board[0][4] = Queen(WHITE);
         //self.spawn_pawn(BLACK);
-        self.board[6][3] = Pawn(BLACK, 0);
-        self.spawn_knight(WHITE);
+        self.spawn_king(BLACK);
     }
     fn spawn_pawn(&mut self, player: Players) {
         match player {
@@ -122,11 +173,16 @@ impl Chess {
     fn check_pawn_moves(&self, player: Players, x: usize, y: usize, moves: i32) -> Vec<Move> {
         //if white player moves up else player moves down
         let mut available: Vec<Move> = vec![];
+
         if player == Players::BLACK {
+            let mut plays = vec![];
             let first = Move::new(Pieces::Pawn(player, moves), (x, y), (x, y+1));
-            let mut plays = vec![first];
-            if moves == 0 && self.is_pos_empty(first) {
-                plays.push(Move::new(Pieces::Pawn(player, moves), (x, y), (x, y+2)));
+            if self.get_piece_at(first.get_new_position().1, first.get_new_position().0) == Empty {
+                plays.push(first);
+            }
+            let second = Move::new(Pieces::Pawn(player, moves), (x, y), (x, y+2));
+            if moves == 0 && self.get_piece_at(first.get_new_position().1, first.get_new_position().0) == Empty && self.get_piece_at(second.get_new_position().1, second.get_new_position().0) == Empty {
+                plays.push(second);
             }
             let diag_x = x.checked_sub(1).unwrap_or(0);
             if self.get_piece_at(y+1, diag_x).get_player() == WHITE {
@@ -142,10 +198,14 @@ impl Chess {
                 }
             }
         } else if player == Players::WHITE {
-            let first = Move::new(Pieces::Pawn(player, moves), (x, y), (x, y-1));
-            let mut plays = vec![first];
-            if moves == 0 && self.is_pos_empty(first) {
-                plays.push(Move::new(Pieces::Pawn(player, moves), (x, y), (x, y-2)));
+            let mut plays = vec![];
+            let first = Move::new(Pieces::Pawn(player, moves), (x, y), (x, y.checked_sub(1).unwrap_or(y)));
+            if self.get_piece_at(first.get_new_position().1, first.get_new_position().0) == Empty {
+                plays.push(first);
+            }
+            let second = Move::new(Pieces::Pawn(player, moves), (x, y), (x, y.checked_sub(1).unwrap_or(y)));
+            if moves == 0 && self.get_piece_at(first.get_new_position().1, first.get_new_position().0) == Empty && self.get_piece_at(second.get_new_position().1, second.get_new_position().0) == Empty {
+                plays.push(second);
             }
             let diag_x = x.checked_sub(1).unwrap_or(0);
             let diag_y = y.checked_sub(1).unwrap_or(0);
@@ -460,11 +520,11 @@ impl Chess {
     pub fn new() -> Chess {
         Chess {
             board: vec![vec![Pieces::Empty;8];8],
-            winner: 0,
+            winner: NULL,
             current_player: WHITE,
             hash: String::new(),
-            p1: Agent::new("p1".to_string(), None),
-            p2: Agent::new("p2".to_string(), None),
+            white: Agent::new("p1".to_string(), None),
+            black: Agent::new("p2".to_string(), None),
             is_end: false,
         }
     }
@@ -485,10 +545,10 @@ impl Chess {
         piece
     }
     fn save_winner(&self) {
-        if self.winner == 1 {
-            self.p1.save("winner".to_string());
-        } else if self.winner == -1 {
-            self.p2.save("winner".to_string());
+        if self.winner == WHITE {
+            self.white.save("winner".to_string());
+        } else if self.winner == BLACK {
+            self.black.save("winner".to_string());
         }
     }
     fn get_piece_at(&self, i: usize, j: usize) -> Pieces {
@@ -515,32 +575,43 @@ impl Chess {
         }
         (usize::MAX, usize::MAX)
     }
-    //TODO IMPLEMENT CHECKING
-    pub fn check_king_safety(&self, player: Players) -> bool {
-        let mut moves: Moves = Moves::new(vec![]);
-        let mut king_pos = self.get_king_pos(player);
+    pub fn is_king_safe(&self, player: Players) -> bool {
+        let mut positions: Moves = Moves::new(vec![]);
         match player {
             WHITE => {
-                moves = self.available_positions(BLACK);
+                positions = self.available_positions(BLACK);
             }
             BLACK => {
-                moves = self.available_positions(WHITE);
+                positions = self.available_positions(WHITE);
             }
             NULL => {}
         }
-        let moves = moves.get_inner();
-        for play in moves {
-            if play.get_new_position() == king_pos {
+        for play in positions.get_inner() {
+            if self.get_king_pos(player) == play.get_new_position() {
                 return false;
             }
+
         }
         true
+    }
+    pub fn get_safe_moves(&self, player: Players) -> Moves {
+        let moves = self.available_positions(player);
+        let available = moves.get_inner();
+        let mut safe_positions: Vec<Move> = vec![];
+        for play in available {
+            let mut test_board = self.clone();
+            test_board.update(play.clone());
+            if test_board.is_king_safe(player) {
+                safe_positions.push(*play);
+            }
+        }
+        Moves::new(safe_positions)
     }
 }
 
 impl GameBoard for Chess {
     type Position = Moves;
-    type Player = ();
+    type Player = Players;
     type Play = Move;
 
     fn available_positions(&self, player: Players) -> Self::Position {
@@ -549,40 +620,64 @@ impl GameBoard for Chess {
         for i in 0..self.board.len() {
             for j in 0..self.board[i].len() {
                 positions.append(&mut self.get_move(player, j, i));
-                /*match self.board[i][j] {
-                    Pieces::Pawn(_, _) => {
-                        positions.append(&mut self.get_move(j, i));
-                    }
-                    Pieces::King(_t) => {
-                        positions.append(&mut self.get_move(j, i));
-                    }
-                    Pieces::Queen(_t) => {
-                        positions.append(&mut self.get_move(j, i));
-                    }
-                    Pieces::Rook(_t) => {
-                        positions.append(&mut self.get_move(j, i));
-                    }
-                    Pieces::Bishop(t) => {
-                        positions.append(&mut self.get_move(j, i));
-                    }
-                    Pieces::Knight(t) => {
-                        positions.append(&mut self.get_move(j, i));
-                    }
-                    Pieces::Empty => {}
-                }*/
             }
         }
         Moves::new(positions)
     }
+
     fn check_winner(&mut self) -> Option<Self::Player> {
-        todo!()
+        let mut white_moves = self.available_positions(WHITE);
+        let mut black_moves = self.available_positions(BLACK);
+        if !self.is_king_safe(WHITE) {
+            white_moves = self.get_safe_moves(WHITE);
+        }
+        if white_moves.get_inner().is_empty() || !self.contains_king(WHITE) {
+            self.is_end = true;
+            self.winner = BLACK;
+            return Some(BLACK);
+        }
+        if !self.is_king_safe(BLACK) {
+            black_moves = self.get_safe_moves(BLACK);
+        }
+        if black_moves.get_inner().is_empty() || !self.contains_king(BLACK) {
+
+            self.is_end = true;
+            self.winner = WHITE;
+            return Some(WHITE);
+        }
+        None
     }
     fn give_reward(&mut self) {
-        todo!()
+        let winner = self.check_winner();
+        match winner {
+            None => {
+                self.white.feed_reward(0.1);
+                self.black.feed_reward(0.5);
+            }
+            Some(t) => {
+                match t {
+                    WHITE => {
+                        self.white.feed_reward(1.0);
+                        self.black.feed_reward(0.0);
+                    }
+                    BLACK => {
+                        self.white.feed_reward(0.0);
+                        self.black.feed_reward(1.0);
+                    }
+                    NULL => {}
+                }
+            }
+        }
     }
 
     fn reset(&mut self) {
         self.reset_inner();
+        self.is_end = false;
+        self.current_player = WHITE;
+        self.winner = NULL;
+        self.hash = String::new();
+        self.white.try_load("winner".to_string());
+        self.black.try_load("winner".to_string());
     }
 
     fn update(&mut self, play: Self::Play) -> Result<(), ()> {
@@ -604,6 +699,7 @@ impl GameBoard for Chess {
 
 impl Display for Chess {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        writeln!(f);
         for i in 0..self.board.len() {
 
             write!(f, "{} ", i+1);

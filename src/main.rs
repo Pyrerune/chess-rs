@@ -7,16 +7,9 @@ mod moves;
 mod agent;
 mod chess;
 
-use useful_shit::{GameBoard, input, Players};
-use std::collections::HashMap;
-use std::fs::File;
-use std::fmt::{Display, Formatter};
-use std::str::FromStr;
-use useful_shit::Players::{WHITE, BLACK, NULL};
-use pieces::Pieces;
+use useful_shit::{GameBoard, input};
 use crate::traits::*;
 use crate::chess::Chess;
-use crate::moves::{Move, Moves};
 
 impl ToPosition for String {
     fn to_position(&self) -> (usize, usize) {
@@ -49,18 +42,28 @@ impl Coords for (usize, usize) {
 
 fn main() {
     let mut game = Chess::new();
+
     game.reset();
+    game.train(1);
+    return;
     loop {
         println!("{}", game);
         println!("Player {:?}", game.get_current_player());
-        let possible_moves = game.available_positions(game.get_current_player());
+        let mut possible_moves = game.available_positions(game.get_current_player());
+        if !game.is_king_safe(game.get_current_player()) {
+            possible_moves = game.get_safe_moves(game.get_current_player());
+        }
         println!("{}", possible_moves.clone());
         let choice: usize = input("Move #: ");
         let possible_moves = possible_moves.get_inner();
         game.update(possible_moves[choice]);
+        let winner = game.check_winner();
+        if winner.is_some() {
+            println!("WINNER IS: {:?}", winner.unwrap());
+            break;
+        }
+
     }
 
 }
-
-//TODO OTHER PIECE MOVEMENTS
-//TODO IMPLEMENT AI
+//TODO TEST MOVEMENTS

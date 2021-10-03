@@ -1,6 +1,9 @@
 use std::fmt::{Display, Formatter};
 use crate::pieces::Pieces;
 use crate::traits::Coords;
+use crate::pieces::Pieces::King;
+use useful_shit::Players::{WHITE, BLACK};
+use useful_shit::Players;
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct Moves(Vec<Move>);
@@ -23,6 +26,7 @@ impl Moves {
     pub fn get_inner(&self) -> &Vec<Move> {
         &self.0
     }
+
 }
 #[derive(Debug, Clone, Copy, PartialOrd, PartialEq)]
 pub struct Move {

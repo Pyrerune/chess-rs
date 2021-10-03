@@ -19,6 +19,7 @@ name = "chess-rs"
 version = "0.1.0"
 dependencies = [
  "num",
+ "rand",
  "serde",
  "serde_json",
  "useful_shit",
