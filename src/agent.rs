@@ -6,6 +6,9 @@ use crate::moves::Move;
 use crate::pieces::Pieces::King;
 use useful_shit::Players::NULL;
 use crate::chess::Chess;
+use std::io::{Write, BufWriter, Read};
+use std::fs::OpenOptions;
+use std::fs;
 
 #[derive(Clone, Debug)]
 pub struct Agent {
@@ -28,18 +31,23 @@ impl Agent {
         }
 
     }
-    pub fn save(&self, filename: String) {
-        let file = File::create(filename).expect("Could not create policy");
+    pub fn save(&mut self, filename: String) {
+        let mut file = OpenOptions::new()
+            .write(true)
+            .open(&filename)
+            .unwrap_or(File::create(filename).unwrap());
+        serde_json::to_writer(&file, &self.states_value);
 
-        serde_json::to_writer(file, &self.states_value);
     }
-    pub(crate) fn try_load(&mut self, filename: String) {
+    pub fn try_load(&mut self, filename: String) {
         let file = File::open(filename);
         if file.is_err() {
             eprintln!("Failed to load agent");
             return;
         }
+
         self.states_value = serde_json::from_reader(file.unwrap()).unwrap();
+
     }
 }
 impl AiFunctions for Agent {

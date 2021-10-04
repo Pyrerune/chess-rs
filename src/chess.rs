@@ -24,6 +24,7 @@ impl Chess {
             println!("Round: {}", i);
             while !self.is_end {
                 let mut positions = self.available_positions(WHITE);
+                println!("{:?}", positions);
                 let mut available = positions.get_inner();
                 let white_action = self.white.choose_action(available.clone(), self.clone(), NULL);
                 self.update(white_action);
@@ -33,6 +34,7 @@ impl Chess {
                 println!("White {}", self.clone());
                 let winner = self.check_winner();
                 if winner.is_some() {
+                    println!("{:?}", winner);
                     self.give_reward();
                     self.save_winner();
                     self.white.reset();
@@ -41,20 +43,23 @@ impl Chess {
                     break;
                 } else {
                     let mut positions = self.available_positions(BLACK);
+                    println!("{:?}", positions);
                     let mut available = positions.get_inner();
                     let black_action = self.black.choose_action(available.clone(), self.clone(), NULL);
                     self.update(black_action);
                     let board_hash = compress(self.board.clone());
-                    self.white.states.push(board_hash);
+                    self.black.states.push(board_hash);
 
                     println!("Black {}", self.clone());
                     let winner = self.check_winner();
                     if winner.is_some() {
+                        println!("{:?}", winner);
                         self.give_reward();
                         self.save_winner();
                         self.white.reset();
                         self.black.reset();
                         self.reset();
+
                         break;
                     }
                 }
@@ -94,7 +99,7 @@ impl Chess {
     #[cfg(feature = "test")]
     fn reset_inner(&mut self) {
         self.current_player = WHITE;
-        self.board[0][4] = Queen(WHITE);
+        self.board[4][0] = Queen(WHITE);
         //self.spawn_pawn(BLACK);
         self.spawn_king(BLACK);
     }
@@ -544,7 +549,7 @@ impl Chess {
         }
         piece
     }
-    fn save_winner(&self) {
+    fn save_winner(&mut self) {
         if self.winner == WHITE {
             self.white.save("winner".to_string());
         } else if self.winner == BLACK {
@@ -562,7 +567,7 @@ impl Chess {
         let position = play.get_new_position();
         let player = self.get_piece_at(position.1, position.0).get_player();
         let you = play.get_piece().get_player();
-        player != you || player ==NULL
+        player == NULL
     }
     fn get_king_pos(&self, player: Players) -> (usize, usize) {
 
@@ -676,8 +681,8 @@ impl GameBoard for Chess {
         self.current_player = WHITE;
         self.winner = NULL;
         self.hash = String::new();
-        self.white.try_load("winner".to_string());
-        self.black.try_load("winner".to_string());
+        self.white.try_load("winnner".to_string());
+        self.black.try_load("winnner".to_string());
     }
 
     fn update(&mut self, play: Self::Play) -> Result<(), ()> {
