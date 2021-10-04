@@ -15,12 +15,13 @@ pub struct Chess {
     white: Agent,
     black: Agent,
     is_end: bool,
+    round: i32
 
 }
 
 impl Chess {
     pub fn train(&mut self, rounds: i32) {
-        for i in 0..rounds {
+        for i in self.round..rounds {
             println!("Round: {}", i);
             while !self.is_end {
                 let mut positions = self.available_positions(WHITE);
@@ -36,7 +37,7 @@ impl Chess {
                 if winner.is_some() {
                     println!("{:?}", winner);
                     self.give_reward();
-                    self.save_winner();
+                    self.save_winner(i);
                     self.white.reset();
                     self.black.reset();
                     self.reset();
@@ -55,7 +56,7 @@ impl Chess {
                     if winner.is_some() {
                         println!("{:?}", winner);
                         self.give_reward();
-                        self.save_winner();
+                        self.save_winner(i);
                         self.white.reset();
                         self.black.reset();
                         self.reset();
@@ -531,6 +532,7 @@ impl Chess {
             white: Agent::new("p1".to_string(), None),
             black: Agent::new("p2".to_string(), None),
             is_end: false,
+            round: 0
         }
     }
     pub fn reset_piece(&self, piece: Pieces) -> Pieces {
@@ -549,11 +551,11 @@ impl Chess {
         }
         piece
     }
-    fn save_winner(&mut self) {
+    fn save_winner(&mut self, round: i32) {
         if self.winner == WHITE {
-            self.white.save("winner".to_string());
+            self.white.save("winner".to_string(), round);
         } else if self.winner == BLACK {
-            self.black.save("winner".to_string());
+            self.black.save("winner".to_string(), round);
         }
     }
     fn get_piece_at(&self, i: usize, j: usize) -> Pieces {
@@ -681,8 +683,8 @@ impl GameBoard for Chess {
         self.current_player = WHITE;
         self.winner = NULL;
         self.hash = String::new();
-        self.white.try_load("winnner".to_string());
-        self.black.try_load("winnner".to_string());
+        self.round = self.white.try_load("winner".to_string());
+        self.black.try_load("winner".to_string());
     }
 
     fn update(&mut self, play: Self::Play) -> Result<(), ()> {

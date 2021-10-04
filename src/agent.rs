@@ -9,7 +9,13 @@ use crate::chess::Chess;
 use std::io::{Write, BufWriter, Read};
 use std::fs::OpenOptions;
 use std::fs;
+use serde::{Serialize, Deserialize};
 
+#[derive(Clone, Debug, Serialize, Deserialize)]
+struct Data {
+    round: i32,
+    data: HashMap<String, f32>
+}
 #[derive(Clone, Debug)]
 pub struct Agent {
     pub(crate) states: Vec<String>,
@@ -31,22 +37,27 @@ impl Agent {
         }
 
     }
-    pub fn save(&mut self, filename: String) {
+    pub fn save(&mut self, filename: String, round: i32) {
         let mut file = OpenOptions::new()
             .write(true)
             .open(&filename)
             .unwrap_or(File::create(filename).unwrap());
-        serde_json::to_writer(&file, &self.states_value);
+        let data = Data {
+            round,
+            data: self.states_value.clone(),
+        };
+        serde_json::to_writer(&file, &data);
 
     }
-    pub fn try_load(&mut self, filename: String) {
+    pub fn try_load(&mut self, filename: String) -> i32 {
         let file = File::open(filename);
         if file.is_err() {
             eprintln!("Failed to load agent");
-            return;
+            return 0;
         }
-
-        self.states_value = serde_json::from_reader(file.unwrap()).unwrap();
+        let data: Data = serde_json::from_reader(file.unwrap()).unwrap();
+        self.states_value = data.data;
+        data.round
 
     }
 }

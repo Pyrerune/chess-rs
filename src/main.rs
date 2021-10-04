@@ -44,7 +44,7 @@ fn main() {
     let mut game = Chess::new();
 
     game.reset();
-    game.train(1);
+    game.train(1000);
     return;
     loop {
         println!("{}", game);
