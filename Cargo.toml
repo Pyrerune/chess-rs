@@ -15,3 +15,5 @@ ron = "0.6.5"
 [features]
 test = []
 run = []
+play = []
+train = []
