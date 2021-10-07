@@ -2,3 +2,6 @@
 /.idea
 /chess-rs.iml
 /Cargo.lock
+/SDL2.dll
+/SDL2.lib
+/matches.log

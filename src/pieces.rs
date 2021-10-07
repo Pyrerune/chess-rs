@@ -1,6 +1,6 @@
-use useful_shit::Players::*;
 use std::str::FromStr;
 use useful_shit::Players;
+use useful_shit::Players::*;
 
 impl FromStr for Pieces {
     type Err = ();
@@ -24,6 +24,7 @@ impl FromStr for Pieces {
         Err(())
     }
 }
+
 #[derive(Debug, Clone, Copy, PartialOrd, PartialEq)]
 pub enum Pieces {
     Pawn(Players, i32),
@@ -34,32 +35,20 @@ pub enum Pieces {
     Knight(Players),
     Empty,
 }
+
 impl Pieces {
-    pub(crate) fn get_player(self) -> Players {
+    pub fn get_player(self) -> Players {
         return match self {
-            Pieces::Pawn(t, _) => {
-                t
-            }
-            Pieces::King(t) => {
-                t
-            }
-            Pieces::Queen(t) => {
-                t
-            }
-            Pieces::Rook(t) => {
-                t
-            }
-            Pieces::Bishop(t) => {
-                t
-            }
-            Pieces::Knight(t) => {
-                t
-            }
-            Pieces::Empty => {
-                NULL
-            }
-        }
+            Pieces::Pawn(t, _) => t,
+            Pieces::King(t) => t,
+            Pieces::Queen(t) => t,
+            Pieces::Rook(t) => t,
+            Pieces::Bishop(t) => t,
+            Pieces::Knight(t) => t,
+            Pieces::Empty => NULL,
+        };
     }
+
     fn get_moves(&self) -> i32 {
         if let Pieces::Pawn(_, i) = self {
             return *i;
